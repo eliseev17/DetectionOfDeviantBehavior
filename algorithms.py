@@ -4,6 +4,8 @@ import base64
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import requests
+
 from vis.visual import write_on_image, visualise, activity_dict, visualise_tracking
 from vis.processor import Processor
 from helpers import pop_and_add, last_ip, dist, move_figure, get_hist
@@ -142,11 +144,21 @@ def show_tracked_img(img_dict, ip_set, num_matched, output_video, args):
     if output_video is None:
         if args.save_output:
             vidname = args.video.split('/')
-            output_video = cv2.VideoWriter(filename='/'.join(vidname[:-1])+'/out'+vidname[-1][:-3]+'avi', fourcc=cv2.VideoWriter_fourcc(*'MP42'),
+            output_video = cv2.VideoWriter(filename='D:/outabc.avi',
+                                           fourcc=cv2.VideoWriter_fourcc(*'MP42'),
                                            fps=args.fps, frameSize=img.shape[:2][::-1])
+            # output_video = cv2.VideoWriter(filename='/'.join(vidname[:-1])+'/out'+vidname[-1][:-3]+'avi', fourcc=cv2.VideoWriter_fourcc(*'MP42'),
+            #                                fps=args.fps, frameSize=img.shape[:2][::-1])
+            # output_video = cv2.VideoWriter(filename='D:/ДИПЛОМ/DetectionOfDeviantBehavior/out'+vidname[-1][:-3]+'avi', fourcc=cv2.VideoWriter_fourcc(*'MP42'),
+            #                                fps=args.fps, frameSize=img.shape[:2][::-1])
+            # logging.debug(
+            #     f'Saving the output video at {args.out_path} with {args.fps} frames per seconds')
             logging.debug(
-                f'Saving the output video at {args.out_path} with {args.fps} frames per seconds')
+                f'Saving the output video at D:/ with {args.fps} frames per seconds')
         else:
+            # output_video = cv2.VideoWriter(filename='D:/output.avi',
+            #                                fourcc=cv2.VideoWriter_fourcc(*'MP42'),
+            #                                fps=args.fps, frameSize=img.shape[:2][::-1])
             output_video = None
             logging.debug(f'Not saving the output video')
     else:
@@ -249,6 +261,10 @@ def alg2_sequential(queues, argss, consecutive_frames, event):
         move_figure(f, 800, 100)
     window_names = [args.video if isinstance(args.video, str) else 'Cam '+str(args.video) for args in argss]
     [cv2.namedWindow(window_name) for window_name in window_names]
+    prev_prediction = -5
+    prev_prediction1 = -5
+    prev_prediction2 = -5
+    fall_counter = 0
     while True:
 
         # if not queue1.empty() and not queue2.empty():
@@ -268,7 +284,16 @@ def alg2_sequential(queues, argss, consecutive_frames, event):
             if argss[0].num_cams == 1:
                 num_matched, new_num, indxs_unmatched = match_ip(ip_sets[0], kp_frames[0], lstm_sets[0], num_matched, max_length_mat)
                 valid1_idxs, prediction = get_all_features(ip_sets[0], lstm_sets[0], model)
-                dict_frames[0]["tagged_df"]["text"] += f" Pred: {activity_dict[prediction+5]}"
+
+                if prediction+5 == 5:
+                    if prev_prediction+5 != prediction+5:
+                        requests.post('https://deviant-behavior-default-rtdb.europe-west1.firebasedatabase.app/notes.json', json={'key': 'value'})
+                        f = open("D:/predictions.txt", 'a')
+                        f.write("1\n")
+                        f.close()
+                        fall_counter+=1
+                prev_prediction = prediction
+                dict_frames[0]["tagged_df"]["text"] += f" Pred: {activity_dict[prediction+5]} " + f"{fall_counter}"
                 img, output_videos[0] = show_tracked_img(dict_frames[0], ip_sets[0], num_matched, output_videos[0], argss[0])
                 # print(img1.shape)
                 cv2.imshow(window_names[0], img)
@@ -343,8 +368,25 @@ def alg2_sequential(queues, argss, consecutive_frames, event):
 
                 valid1_idxs, prediction1 = get_all_features(ip_sets[0], lstm_sets[0], model)
                 valid2_idxs, prediction2 = get_all_features(ip_sets[1], lstm_sets[1], model)
-                dict_frames[0]["tagged_df"]["text"] += f" Pred: {activity_dict[prediction1+5]}"
-                dict_frames[1]["tagged_df"]["text"] += f" Pred: {activity_dict[prediction2+5]}"
+
+                dict_frames[0]["tagged_df"]["text"] += f" Pred: {activity_dict[prediction1+5]} " + f" Counter: {fall_counter}"
+                dict_frames[1]["tagged_df"]["text"] += f" Pred: {activity_dict[prediction2+5]} " + f" Counter: {fall_counter}"
+
+                if prediction1+5 == 5:
+                    if prev_prediction1+5 != prediction1+5:
+                        f = open("D:/predictions.txt", 'a')
+                        f.write("1\n")
+                        f.close()
+                        fall_counter+=1
+                prev_prediction1 = prediction1
+                if prediction2+5 == 5:
+                    if prev_prediction2+5 != prediction2+5:
+                        f = open("D:/predictions.txt", 'a')
+                        f.write("2\n")
+                        f.close()
+                        fall_counter+=1
+                prev_prediction2 = prediction2
+
                 img1, output_videos[0] = show_tracked_img(dict_frames[0], ip_sets[0], num_matched, output_videos[0], argss[0])
                 img2, output_videos[1] = show_tracked_img(dict_frames[1], ip_sets[1], num_matched, output_videos[1], argss[1])
                 # print(img1.shape)
